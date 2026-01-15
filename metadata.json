@@ -1,0 +1,7 @@
+{
+  "name": "Muallim AI - Smart Arabic Review",
+  "description": "An intelligent Arabic educational assistant that generates interactive review questions from images or text.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
