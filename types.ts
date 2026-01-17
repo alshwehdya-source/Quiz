@@ -8,7 +8,14 @@ export enum Difficulty {
 export enum QuestionType {
   MultipleChoice = "MultipleChoice",
   TrueFalse = "TrueFalse",
-  ShortAnswer = "ShortAnswer"
+  ShortAnswer = "ShortAnswer",
+  FillInBlanks = "FillInBlanks"
+}
+
+export interface MediaItem {
+  base64Data: string;
+  mimeType: string;
+  fileName?: string;
 }
 
 export interface Question {
@@ -17,7 +24,7 @@ export interface Question {
   difficulty: Difficulty;
   questionText: string;
   options?: string[]; // Only for MC
-  correctAnswer: string; // For TF, it would be "True" or "False" localized
+  correctAnswer: string; 
   explanation: string;
 }
 
@@ -35,7 +42,6 @@ export interface QuizConfiguration {
 
 export interface GenerateContentRequest {
   text?: string;
-  base64Data?: string;
-  mimeType?: string;
+  mediaItems?: MediaItem[];
   config: QuizConfiguration;
 }

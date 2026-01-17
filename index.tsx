@@ -13,3 +13,21 @@ root.render(
     <App />
   </React.StrictMode>
 );
+// انتظر حتى يتم تحميل الصفحة بالكامل
+window.addEventListener('load', () => {
+  const splash = document.getElementById('splash');
+  
+  if (splash) {
+    // الانتظار لمدة 5 ثواني (5000 ميلي ثانية)
+    setTimeout(() => {
+      // إضافة تأثير تلاشي بسيط لجعل الاختفاء ناعماً
+      splash.style.opacity = '0';
+      splash.style.transition = 'opacity 0.8s ease';
+      
+      // حذف العنصر تماماً بعد انتهاء تأثير التلاشي
+      setTimeout(() => {
+        splash.remove();
+      }, 800); 
+    }, 3000); 
+  }
+});

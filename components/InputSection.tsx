@@ -1,45 +1,49 @@
+
 import React, { useState, useRef } from 'react';
-import { Camera, Upload, Type, X, Image as ImageIcon, FileText, ArrowLeft } from 'lucide-react';
+import { Camera, Upload, Type, X, FileText, ArrowLeft, Plus, Image as ImageIcon } from 'lucide-react';
+import { MediaItem } from '../types';
 
 interface InputSectionProps {
-  onContinue: (text: string, base64Data: string | null, mimeType: string | null) => void;
+  onContinue: (text: string, mediaItems: MediaItem[]) => void;
   isLoading: boolean;
 }
 
 const InputSection: React.FC<InputSectionProps> = ({ onContinue, isLoading }) => {
   const [mode, setMode] = useState<'upload' | 'camera' | 'text'>('upload');
   const [inputText, setInputText] = useState('');
-  const [previewData, setPreviewData] = useState<string | null>(null);
-  const [mimeType, setMimeType] = useState<string | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
 
-  // File Upload Handler
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
-        alert('يرجى رفع صورة أو ملف PDF فقط');
-        return;
-      }
+    const files = e.target.files;
+    if (files) {
+      // Fix: Explicitly typing 'file' as File to resolve 'unknown' type errors during iteration
+      Array.from(files).forEach((file: File) => {
+        if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+          return;
+        }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setPreviewData(result); // Full data URL for preview/sending
-        setMimeType(file.type);
-        setFileName(file.name);
-      };
-      reader.readAsDataURL(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          const base64Data = result.split(',')[1];
+          const newItem: MediaItem = {
+            base64Data,
+            mimeType: file.type,
+            fileName: file.name
+          };
+          setMediaItems(prev => [...prev, newItem]);
+        };
+        reader.readAsDataURL(file);
+      });
     }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Camera Handlers
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -51,7 +55,7 @@ const InputSection: React.FC<InputSectionProps> = ({ onContinue, isLoading }) =>
       }
     } catch (err) {
       console.error("Error accessing camera:", err);
-      alert("تعذر الوصول إلى الكاميرا. يرجى التحقق من الأذونات.");
+      alert("تعذر الوصول إلى الكاميرا.");
     }
   };
 
@@ -74,88 +78,106 @@ const InputSection: React.FC<InputSectionProps> = ({ onContinue, isLoading }) =>
       if (context) {
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL('image/jpeg');
-        setPreviewData(dataUrl);
-        setMimeType('image/jpeg');
-        setFileName('photo.jpg');
+        const base64Data = dataUrl.split(',')[1];
+        setMediaItems(prev => [...prev, {
+          base64Data,
+          mimeType: 'image/jpeg',
+          fileName: `photo_${Date.now()}.jpg`
+        }]);
         stopCamera();
+        setMode('upload'); // Switch back to show list
       }
     }
   };
 
+  const removeItem = (index: number) => {
+    setMediaItems(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleContinueClick = () => {
-    // Process inputs based on what is available
-    let finalBase64 = null;
-    if (previewData) {
-      finalBase64 = previewData.split(',')[1];
-    }
-    
-    if (!inputText && !finalBase64) {
-      alert("يرجى إدخال نص أو صورة للمتابعة");
+    if (!inputText && mediaItems.length === 0) {
+      alert("يرجى إدخال نص أو ملف واحد على الأقل للمتابعة");
       return;
     }
-
-    onContinue(inputText, finalBase64, mimeType);
+    onContinue(inputText, mediaItems);
   };
-
-  const clearContent = () => {
-    setPreviewData(null);
-    setMimeType(null);
-    setFileName(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    stopCamera();
-  };
-
-  // Clean up camera on unmount or mode switch
-  React.useEffect(() => {
-    return () => stopCamera();
-  }, [mode]);
 
   return (
-    <div className="w-full max-w-3xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-emerald-100">
-      <div className="bg-emerald-600 p-6 text-white text-center">
-        <h2 className="text-2xl font-bold mb-2">ماذا تريد أن تراجع اليوم؟</h2>
-        <p className="opacity-90">قم برفع ملف PDF، صورة، أو لصق نص</p>
+    <div className="w-full max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-emerald-100">
+      <div className="bg-emerald-600 p-8 text-white text-center">
+        <h2 className="text-3xl font-black mb-2">ماذا تريد أن تراجع اليوم؟</h2>
+        <p className="opacity-90 font-medium">يمكنك رفع حتى 10 صور أو ملفات PDF معاً</p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200">
+      <div className="flex border-b border-gray-100 bg-gray-50/50">
         <button
-          onClick={() => { setMode('upload'); clearContent(); }}
-          className={`flex-1 py-4 flex items-center justify-center gap-2 font-medium transition-colors ${mode === 'upload' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50' : 'text-gray-500 hover:text-gray-700'}`}
+          onClick={() => { setMode('upload'); stopCamera(); }}
+          className={`flex-1 py-5 flex items-center justify-center gap-3 font-bold transition-all ${mode === 'upload' ? 'text-emerald-600 border-b-4 border-emerald-600 bg-white' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <Upload size={20} />
-          <span>رفع ملف</span>
+          <Upload size={22} />
+          <span>الملفات المرفوعة ({mediaItems.length})</span>
         </button>
         <button
-          onClick={() => { setMode('camera'); startCamera(); clearContent(); }}
-          className={`flex-1 py-4 flex items-center justify-center gap-2 font-medium transition-colors ${mode === 'camera' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50' : 'text-gray-500 hover:text-gray-700'}`}
+          onClick={() => { setMode('camera'); startCamera(); }}
+          className={`flex-1 py-5 flex items-center justify-center gap-3 font-bold transition-all ${mode === 'camera' ? 'text-emerald-600 border-b-4 border-emerald-600 bg-white' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <Camera size={20} />
-          <span>الكاميرا</span>
+          <Camera size={22} />
+          <span>التقاط صورة</span>
         </button>
         <button
-          onClick={() => { setMode('text'); clearContent(); }}
-          className={`flex-1 py-4 flex items-center justify-center gap-2 font-medium transition-colors ${mode === 'text' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50' : 'text-gray-500 hover:text-gray-700'}`}
+          onClick={() => { setMode('text'); stopCamera(); }}
+          className={`flex-1 py-5 flex items-center justify-center gap-3 font-bold transition-all ${mode === 'text' ? 'text-emerald-600 border-b-4 border-emerald-600 bg-white' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <Type size={20} />
-          <span>نص مباشر</span>
+          <Type size={22} />
+          <span>نص مكتوب</span>
         </button>
       </div>
 
-      <div className="p-6 min-h-[300px] flex flex-col justify-center items-center">
-        {mode === 'upload' && !previewData && (
-          <div 
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full border-2 border-dashed border-gray-300 rounded-xl p-10 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50 transition-all group"
-          >
-            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Upload size={32} />
+      <div className="p-8 min-h-[400px]">
+        {mode === 'upload' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {mediaItems.map((item, index) => (
+                <div key={index} className="relative group aspect-square rounded-2xl overflow-hidden border-2 border-emerald-50 bg-gray-50 flex flex-col items-center justify-center p-2">
+                  {item.mimeType.startsWith('image/') ? (
+                    <img src={`data:${item.mimeType};base64,${item.base64Data}`} className="w-full h-full object-cover rounded-xl" alt="Preview" />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <FileText size={40} className="text-emerald-600" />
+                      <span className="text-[10px] font-bold text-gray-500 text-center line-clamp-2 px-1">{item.fileName}</span>
+                    </div>
+                  )}
+                  <button 
+                    onClick={() => removeItem(index)}
+                    className="absolute -top-1 -right-1 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+              
+              {mediaItems.length < 10 && (
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="aspect-square rounded-2xl border-2 border-dashed border-emerald-200 flex flex-col items-center justify-center gap-2 text-emerald-600 hover:bg-emerald-50 transition-all"
+                >
+                  <Plus size={32} />
+                  <span className="text-xs font-bold">أضف ملف</span>
+                </button>
+              )}
             </div>
-            <p className="text-gray-600 font-medium mb-1">اضغط لرفع ملف</p>
-            <p className="text-gray-400 text-sm">ندعم الصور (JPG, PNG) وملفات PDF</p>
+            
+            {mediaItems.length === 0 && (
+              <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-3xl">
+                <Upload size={48} className="mx-auto text-gray-300 mb-4" />
+                <p className="text-gray-400 font-bold">لم تقم بإضافة أي ملفات بعد</p>
+              </div>
+            )}
+            
             <input 
               ref={fileInputRef} 
               type="file" 
+              multiple
               accept="image/*,application/pdf" 
               className="hidden" 
               onChange={handleFileChange}
@@ -163,96 +185,33 @@ const InputSection: React.FC<InputSectionProps> = ({ onContinue, isLoading }) =>
           </div>
         )}
 
-        {mode === 'camera' && !previewData && (
-          <div className="w-full relative bg-black rounded-xl overflow-hidden aspect-[4/3]">
-            <video 
-              ref={videoRef} 
-              autoPlay 
-              playsInline 
-              className="w-full h-full object-cover"
-            />
+        {mode === 'camera' && (
+          <div className="w-full relative bg-gray-900 rounded-3xl overflow-hidden aspect-[4/3] shadow-inner">
+            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
             <canvas ref={canvasRef} className="hidden" />
-            <div className="absolute bottom-4 left-0 right-0 flex justify-center">
-              <button 
-                onClick={capturePhoto}
-                className="w-16 h-16 rounded-full border-4 border-white bg-red-500 hover:bg-red-600 shadow-lg transition-transform active:scale-95"
-              ></button>
+            <div className="absolute bottom-6 left-0 right-0 flex justify-center">
+              <button onClick={capturePhoto} className="w-20 h-20 rounded-full border-8 border-white/30 bg-white hover:scale-110 transition-transform active:scale-90 shadow-2xl"></button>
             </div>
-            {!isCameraActive && (
-               <div className="absolute inset-0 flex items-center justify-center text-white bg-black/50">
-                  <p>جاري تشغيل الكاميرا...</p>
-               </div>
-            )}
           </div>
         )}
 
         {mode === 'text' && (
           <textarea
-            className="w-full h-64 p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none text-right"
-            placeholder="الصق النص هنا..."
+            className="w-full h-72 p-6 border-2 border-gray-100 rounded-3xl focus:ring-4 focus:ring-emerald-100 focus:border-emerald-500 outline-none resize-none text-right text-lg font-medium bg-gray-50/30"
+            placeholder="اكتب أو الصق أي نص تعليمي هنا..."
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
           ></textarea>
         )}
 
-        {/* Preview Area */}
-        {previewData && (
-          <div className="relative w-full max-w-md mx-auto mt-4 rounded-xl overflow-hidden border border-gray-200 shadow-md bg-gray-50">
-            
-            {/* Image Preview */}
-            {mimeType?.startsWith('image') && (
-              <img src={previewData} alt="Preview" className="w-full h-auto" />
-            )}
-
-            {/* PDF Preview */}
-            {mimeType === 'application/pdf' && (
-              <div className="flex flex-col items-center justify-center p-8 text-center">
-                <div className="w-16 h-16 bg-red-100 text-red-600 rounded-lg flex items-center justify-center mb-3">
-                  <FileText size={36} />
-                </div>
-                <p className="font-bold text-gray-700 break-all">{fileName}</p>
-                <p className="text-sm text-gray-500 mt-1">جاهز للتحليل</p>
-              </div>
-            )}
-
-            <button 
-              onClick={clearContent}
-              className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 shadow-sm z-10"
-              title="حذف الملف"
-            >
-              <X size={20} />
-            </button>
-            
-            {mode === 'camera' && (
-                <button 
-                onClick={() => { clearContent(); startCamera(); }}
-                className="absolute bottom-2 right-2 bg-white/90 text-gray-800 px-3 py-1 rounded-lg text-sm font-medium shadow-sm z-10"
-              >
-                إعادة التصوير
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Action Button */}
-        <div className="w-full mt-8">
+        <div className="mt-10">
           <button
             onClick={handleContinueClick}
-            disabled={isLoading || (!inputText && !previewData)}
-            className={`w-full py-4 rounded-xl text-lg font-bold shadow-lg transition-all flex items-center justify-center gap-2
-              ${isLoading || (!inputText && !previewData)
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-emerald-200 hover:-translate-y-1'
-              }`}
+            disabled={isLoading || (mediaItems.length === 0 && !inputText)}
+            className="w-full py-5 rounded-2xl bg-gray-900 text-white font-black text-xl shadow-xl hover:bg-emerald-600 hover:-translate-y-1 transition-all flex items-center justify-center gap-3 disabled:opacity-30 disabled:pointer-events-none"
           >
-            {isLoading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <>
-                المتابعة للإعدادات
-                <ArrowLeft size={20} />
-              </>
-            )}
+            المتابعة ({mediaItems.length} ملفات)
+            <ArrowLeft size={24} />
           </button>
         </div>
       </div>

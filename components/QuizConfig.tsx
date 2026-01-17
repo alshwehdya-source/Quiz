@@ -55,16 +55,17 @@ const QuizConfig: React.FC<QuizConfigProps> = ({ onStartQuiz, onBack, isLoading 
             <ListChecks size={20} className="text-emerald-600" />
             أنواع الأسئلة
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               { id: QuestionType.TrueFalse, label: 'صح أم خطأ' },
               { id: QuestionType.MultipleChoice, label: 'اختيار من متعدد' },
-              { id: QuestionType.ShortAnswer, label: 'إجابة قصيرة' }
+              { id: QuestionType.ShortAnswer, label: 'إجابة مقالية' },
+              { id: QuestionType.FillInBlanks, label: 'إكمال الفراغ' }
             ].map((type) => (
               <div 
                 key={type.id}
                 onClick={() => toggleType(type.id)}
-                className={`p-4 rounded-xl border-2 cursor-pointer transition-all text-center font-medium
+                className={`p-4 rounded-xl border-2 cursor-pointer transition-all text-center font-bold
                   ${selectedTypes.includes(type.id)
                     ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                     : 'border-gray-200 hover:border-emerald-200 text-gray-500'
@@ -86,15 +87,15 @@ const QuizConfig: React.FC<QuizConfigProps> = ({ onStartQuiz, onBack, isLoading 
             <input 
               type="range" 
               min="1" 
-              max="20" 
+              max="50" 
               value={questionCount}
               onChange={(e) => setQuestionCount(parseInt(e.target.value))}
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
             />
             <div className="flex justify-between text-xs text-gray-400 mt-2">
               <span>1</span>
-              <span>10</span>
-              <span>20</span>
+              <span>25</span>
+              <span>50</span>
             </div>
           </div>
 
@@ -109,11 +110,11 @@ const QuizConfig: React.FC<QuizConfigProps> = ({ onStartQuiz, onBack, isLoading 
                 onChange={(e) => setTargetAge(e.target.value)}
                 className="w-full p-3 pr-4 pl-10 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none appearance-none font-medium text-gray-700 bg-white"
               >
-                <option value="6-9">6-9 سنوات (ابتدائي أولية)</option>
+                <option value="6-9">6-9 سنوات (ابتدائي)</option>
                 <option value="10-12">10-12 سنة (ابتدائي عليا)</option>
                 <option value="13-15">13-15 سنة (متوسط)</option>
                 <option value="16-18">16-18 سنة (ثانوي)</option>
-                <option value="19+">19+ سنة (جامعي/بالغين)</option>
+                <option value="19+">جامعي / عام</option>
               </select>
               <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-500">
                 <ChevronDown size={20} />
